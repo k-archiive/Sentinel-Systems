@@ -64,3 +64,14 @@ break ties. The reroute feature can use it once the app requests alternative rou
 - 150 m and the 2 ft cap are starting values; tune them when testing against past flood days.
 - Harvey marks are from 2017. They show where flooding *has* happened, not where it is now.
 - Points are treated as independent even when several mark the same flooded area.
+
+## When the app shows safety guidance
+
+Following the flowchart ("Route found? No → Display safety guidance"), the app stops and shows a
+safety screen instead of just drawing the route when:
+
+- the route scores **60 or higher** (high risk): the driver can still choose "Show route anyway";
+- **no route** is found to the destination;
+- the routing service **can't be reached**.
+
+Code: `Route_Machine/src/risk/safetyGuidance.js` and `src/components/SafetyGuidance.jsx`.

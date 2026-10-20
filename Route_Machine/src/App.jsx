@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, CircleMarker, Tooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
+import RiskRoute, { RISK_COLORS } from './components/RiskRoute.jsx';
+import { scoreRoute } from './risk/scoreRoute.js';
+import { SAMPLE_FLOOD_POINTS } from './data/sampleFloodPoints.js';
+
+const RISK_LABELS = { clear: 'Clear', low: 'Low', moderate: 'Moderate', high: 'High' };
 
 function App() {
   const houstonCenter = [29.7604, -95.3698];
@@ -10,6 +15,8 @@ function App() {
   const [destinationText, setDestinationText] = useState('');
   const [destinationPin, setDestinationPin] = useState(null);
   const [routePoints, setRoutePoints] = useState(null);
+  const [risk, setRisk] = useState(null);
+  const floodPoints = SAMPLE_FLOOD_POINTS;
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -65,6 +72,7 @@ function App() {
         point[0],
       ]);
       setRoutePoints(coords);
+      setRisk(scoreRoute(coords, floodPoints));
     } else {
       alert('Could not find a route between those two points.');
     }
@@ -110,6 +118,45 @@ function App() {
         </button>
       </div>
 
+      {risk && (
+        <div
+          style={{
+            padding: '8px 12px',
+            background: '#111',
+            color: '#eee',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '12px',
+            fontSize: '15px',
+          }}
+        >
+          <span
+            style={{
+              background: RISK_COLORS[risk.level],
+              color: '#fff',
+              fontWeight: 700,
+              padding: '2px 10px',
+              borderRadius: '999px',
+            }}
+          >
+            {RISK_LABELS[risk.level]} risk · {risk.score}/100
+          </span>
+          {risk.hits.length > 0 ? (
+            <span>
+              {risk.hits.length} flood point{risk.hits.length === 1 ? '' : 's'} within 150 m
+              {risk.maxDepthFt != null && ` · deepest ${risk.maxDepthFt} ft`}
+              {` · ${risk.exposedMeters} m of route affected`}
+            </span>
+          ) : (
+            <span>No known flooding within 150 m of this route.</span>
+          )}
+          <span style={{ marginLeft: 'auto', opacity: 0.6, fontSize: '13px' }}>
+            Sample flood data (for testing)
+          </span>
+        </div>
+      )}
+
       <div style={{ flex: 1 }}>
         <MapContainer
           center={userLocation}
@@ -122,9 +169,17 @@ function App() {
           />
           <Marker position={userLocation} />
           {destinationPin && <Marker position={destinationPin} />}
-          {routePoints && (
-            <Polyline positions={routePoints} color="blue" weight={5} />
-          )}
+          {floodPoints.map((point) => (
+            <CircleMarker
+              key={`${point.lat},${point.lng}`}
+              center={[point.lat, point.lng]}
+              radius={6}
+              pathOptions={{ color: '#0e7490', fillColor: '#22d3ee', fillOpacity: 0.8 }}
+            >
+              <Tooltip>Flood point · {point.depthFt} ft deep</Tooltip>
+            </CircleMarker>
+          ))}
+          {risk && routePoints && <RiskRoute segments={risk.segments} />}
         </MapContainer>
       </div>
     </div>

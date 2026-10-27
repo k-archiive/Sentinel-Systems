@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, CircleMarker, Tooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
 import RiskRoute, { RISK_COLORS } from './components/RiskRoute.jsx';
 import { scoreRoute } from './risk/scoreRoute.js';
 import { SAMPLE_FLOOD_POINTS } from './data/sampleFloodPoints.js';
+import SafetyGuidance from './components/SafetyGuidance.jsx';
+import { guidanceFor } from './risk/safetyGuidance.js';
 
 const RISK_LABELS = { clear: 'Clear', low: 'Low', moderate: 'Moderate', high: 'High' };
 
@@ -16,7 +18,14 @@ function App() {
   const [destinationPin, setDestinationPin] = useState(null);
   const [routePoints, setRoutePoints] = useState(null);
   const [risk, setRisk] = useState(null);
+  const [guidance, setGuidance] = useState(null);
+  const searchInputRef = useRef(null);
   const floodPoints = SAMPLE_FLOOD_POINTS;
+
+  const closeGuidance = useCallback(() => {
+    setGuidance(null);
+    searchInputRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -43,8 +52,14 @@ function App() {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
       destinationText
     )}, Houston, TX`;
-    const response = await fetch(url);
-    const results = await response.json();
+    let results;
+    try {
+      const response = await fetch(url);
+      results = await response.json();
+    } catch {
+      setGuidance(guidanceFor({ status: 'unreachable' }));
+      return;
+    }
 
     if (results.length === 0) {
       alert('Could not find that location. Try being more specific.');
@@ -63,8 +78,14 @@ function App() {
   async function getRoute(start, end) {
     const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
 
-    const response = await fetch(url);
-    const data = await response.json();
+    let data;
+    try {
+      const response = await fetch(url);
+      data = await response.json();
+    } catch {
+      setGuidance(guidanceFor({ status: 'unreachable' }));
+      return;
+    }
 
     if (data.routes && data.routes.length > 0) {
       const coords = data.routes[0].geometry.coordinates.map((point) => [
@@ -72,9 +93,13 @@ function App() {
         point[0],
       ]);
       setRoutePoints(coords);
-      setRisk(scoreRoute(coords, floodPoints));
+      const routeRisk = scoreRoute(coords, floodPoints);
+      setRisk(routeRisk);
+      setGuidance(guidanceFor({ status: 'ok', risk: routeRisk }));
     } else {
-      alert('Could not find a route between those two points.');
+      setRoutePoints(null);
+      setRisk(null);
+      setGuidance(guidanceFor({ status: 'no-route' }));
     }
   }
 
@@ -104,6 +129,7 @@ function App() {
         }}
       >
         <input
+          ref={searchInputRef}
           type="text"
           placeholder="Type a destination in Houston..."
           value={destinationText}
@@ -157,7 +183,7 @@ function App() {
         </div>
       )}
 
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, position: 'relative' }}>
         <MapContainer
           center={userLocation}
           zoom={11}
@@ -181,6 +207,14 @@ function App() {
           ))}
           {risk && routePoints && <RiskRoute segments={risk.segments} />}
         </MapContainer>
+        {guidance && (
+          <SafetyGuidance
+            reason={guidance.reason}
+            risk={risk}
+            onShowRoute={() => setGuidance(null)}
+            onClose={closeGuidance}
+          />
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, CircleMarker, Tooltip } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, CircleMarker, Tooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
 import RiskRoute, { RISK_COLORS } from './components/RiskRoute.jsx';
@@ -10,6 +10,15 @@ import { guidanceFor } from './risk/safetyGuidance.js';
 
 const RISK_LABELS = { clear: 'Clear', low: 'Low', moderate: 'Moderate', high: 'High' };
 
+// Zooms the map to show the whole route whenever a new one is drawn.
+function FitToRoute({ points }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points && points.length > 1) map.fitBounds(points, { padding: [40, 40] });
+  }, [map, points]);
+  return null;
+}
+
 function App() {
   const houstonCenter = [29.7604, -95.3698];
 
@@ -19,6 +28,8 @@ function App() {
   const [routePoints, setRoutePoints] = useState(null);
   const [risk, setRisk] = useState(null);
   const [guidance, setGuidance] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [notice, setNotice] = useState('');
   const searchInputRef = useRef(null);
   const floodPoints = SAMPLE_FLOOD_POINTS;
 
@@ -36,10 +47,8 @@ function App() {
             position.coords.longitude,
           ]);
         },
-        (error) => {
-          alert(
-            'Could not get your location, using default Houston center instead.'
-          );
+        () => {
+          setNotice("Couldn't get your location, so routes start from downtown Houston.");
           setUserLocation(houstonCenter);
         }
       );
@@ -48,9 +57,22 @@ function App() {
     }
   }, []);
 
-  async function handleSearch() {
+  async function handleSearch(e) {
+    e.preventDefault();
+    const query = destinationText.trim();
+    if (!query || searching) return;
+    setSearching(true);
+    setNotice('');
+    try {
+      await searchAndRoute(query);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function searchAndRoute(query) {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-      destinationText
+      query
     )}, Houston, TX`;
     let results;
     try {
@@ -62,7 +84,7 @@ function App() {
     }
 
     if (results.length === 0) {
-      alert('Could not find that location. Try being more specific.');
+      setNotice(`Couldn't find "${query}" in Houston. Try adding a street or neighbourhood.`);
       return;
     }
 
@@ -120,7 +142,8 @@ function App() {
         flexDirection: 'column',
       }}
     >
-      <div
+      <form
+        onSubmit={handleSearch}
         style={{
           padding: '10px',
           background: '#222',
@@ -130,6 +153,8 @@ function App() {
       >
         <input
           ref={searchInputRef}
+          autoFocus
+          aria-label="Destination"
           type="text"
           placeholder="Type a destination in Houston..."
           value={destinationText}
@@ -137,12 +162,22 @@ function App() {
           style={{ flex: 1, padding: '8px', fontSize: '16px' }}
         />
         <button
-          onClick={handleSearch}
-          style={{ padding: '8px 16px', fontSize: '16px' }}
+          type="submit"
+          disabled={searching}
+          style={{ padding: '8px 16px', fontSize: '16px', minWidth: '130px' }}
         >
-          Search
+          {searching ? 'Finding route…' : 'Search'}
         </button>
-      </div>
+      </form>
+
+      {notice && (
+        <div
+          role="status"
+          style={{ padding: '8px 12px', background: '#3a2e05', color: '#fde68a', fontSize: '15px' }}
+        >
+          {notice}
+        </div>
+      )}
 
       {risk && (
         <div
@@ -206,6 +241,7 @@ function App() {
             </CircleMarker>
           ))}
           {risk && routePoints && <RiskRoute segments={risk.segments} />}
+          <FitToRoute points={routePoints} />
         </MapContainer>
         {guidance && (
           <SafetyGuidance

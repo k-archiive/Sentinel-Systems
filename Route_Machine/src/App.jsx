@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, CircleMarker, Tooltip, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, CircleMarker, Tooltip, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
 import RiskRoute, { RISK_COLORS } from './components/RiskRoute.jsx';
@@ -9,6 +9,10 @@ import SafetyGuidance from './components/SafetyGuidance.jsx';
 import { guidanceFor } from './risk/safetyGuidance.js';
 import DestinationSearch from './components/DestinationSearch.jsx';
 import { searchAddress, suggestPlaces } from './geo/places.js';
+import GooglePreview from './components/GooglePreview.jsx';
+import { getEmbedKey } from './google/embed.js';
+
+const GOOGLE_EMBED_KEY = getEmbedKey();
 
 const RISK_LABELS = { clear: 'Clear', low: 'Low', moderate: 'Moderate', high: 'High' };
 
@@ -32,6 +36,7 @@ function App() {
   const [searching, setSearching] = useState(false);
   const [notice, setNotice] = useState('');
   const [didYouMean, setDidYouMean] = useState([]);
+  const [googleView, setGoogleView] = useState(null);
   const searchInputRef = useRef(null);
   const floodPoints = SAMPLE_FLOOD_POINTS;
 
@@ -122,10 +127,12 @@ function App() {
       setRoutePoints(coords);
       const routeRisk = scoreRoute(coords, floodPoints);
       setRisk(routeRisk);
+      setGoogleView({ mode: 'route' });
       setGuidance(guidanceFor({ status: 'ok', risk: routeRisk }));
     } else {
       setRoutePoints(null);
       setRisk(null);
+      setGoogleView(null);
       setGuidance(guidanceFor({ status: 'no-route' }));
     }
   }
@@ -243,11 +250,37 @@ function App() {
               pathOptions={{ color: '#0e7490', fillColor: '#22d3ee', fillOpacity: 0.8 }}
             >
               <Tooltip>Flood point · {point.depthFt} ft deep</Tooltip>
+              <Popup>
+                <strong>Flood point</strong>
+                <div>Water was {point.depthFt} ft deep here.</div>
+                <button
+                  type="button"
+                  style={{ marginTop: '6px', cursor: 'pointer' }}
+                  onClick={() =>
+                    setGoogleView({
+                      mode: 'street',
+                      point: [point.lat, point.lng],
+                      title: `Flood point · ${point.depthFt} ft deep`,
+                    })
+                  }
+                >
+                  See it in Street View
+                </button>
+              </Popup>
             </CircleMarker>
           ))}
           {risk && routePoints && <RiskRoute segments={risk.segments} />}
           <FitToRoute points={routePoints} />
         </MapContainer>
+        {googleView && (googleView.mode === 'street' || routePoints) && (
+          <GooglePreview
+            apiKey={GOOGLE_EMBED_KEY}
+            view={googleView}
+            route={routePoints}
+            onChangeView={setGoogleView}
+            onClose={() => setGoogleView(null)}
+          />
+        )}
         {guidance && (
           <SafetyGuidance
             reason={guidance.reason}

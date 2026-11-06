@@ -46,9 +46,10 @@ Time from pressing Enter to the route and risk score appearing: about **1 second
 
 - **No way to choose a different start.** Routes always start from the user's location
   (or downtown if location is blocked).
-- **Search only covers Houston.** Places like Kemah return "couldn't find". That's expected
-  for now, but the message could say the app covers Houston only.
-- **No suggestions while typing.** Autocomplete would help with misspellings.
+- ~~**Search only covers Houston city.**~~ Fixed for #46: search now covers the Greater Houston
+  area (Katy, Sugar Land, Pearland, Kemah, The Woodlands, Baytown).
+- ~~**No suggestions while typing.**~~ Fixed for #45: a dropdown suggests places after 3
+  characters, and a failed search offers "Did you mean…?" choices.
 - **The previous route stays on the map after a failed search,** which could confuse someone.
 
 ## Testing with real users (to do)

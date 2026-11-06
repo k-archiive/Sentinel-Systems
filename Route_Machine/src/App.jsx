@@ -7,6 +7,8 @@ import { scoreRoute } from './risk/scoreRoute.js';
 import { SAMPLE_FLOOD_POINTS } from './data/sampleFloodPoints.js';
 import SafetyGuidance from './components/SafetyGuidance.jsx';
 import { guidanceFor } from './risk/safetyGuidance.js';
+import DestinationSearch from './components/DestinationSearch.jsx';
+import { searchAddress, suggestPlaces } from './geo/places.js';
 
 const RISK_LABELS = { clear: 'Clear', low: 'Low', moderate: 'Moderate', high: 'High' };
 
@@ -23,13 +25,13 @@ function App() {
   const houstonCenter = [29.7604, -95.3698];
 
   const [userLocation, setUserLocation] = useState(null);
-  const [destinationText, setDestinationText] = useState('');
   const [destinationPin, setDestinationPin] = useState(null);
   const [routePoints, setRoutePoints] = useState(null);
   const [risk, setRisk] = useState(null);
   const [guidance, setGuidance] = useState(null);
   const [searching, setSearching] = useState(false);
   const [notice, setNotice] = useState('');
+  const [didYouMean, setDidYouMean] = useState([]);
   const searchInputRef = useRef(null);
   const floodPoints = SAMPLE_FLOOD_POINTS;
 
@@ -57,44 +59,47 @@ function App() {
     }
   }, []);
 
-  async function handleSearch(e) {
-    e.preventDefault();
-    const query = destinationText.trim();
-    if (!query || searching) return;
+  // Runs one search or route request at a time and clears old messages.
+  async function withSearching(task) {
+    if (searching) return;
     setSearching(true);
     setNotice('');
+    setDidYouMean([]);
     try {
-      await searchAndRoute(query);
+      await task();
     } finally {
       setSearching(false);
     }
   }
 
+  async function routeToPlace(place) {
+    setDestinationPin([place.lat, place.lng]);
+    if (userLocation) {
+      await getRoute(userLocation, [place.lat, place.lng]);
+    }
+  }
+
   async function searchAndRoute(query) {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-      query
-    )}, Houston, TX`;
     let results;
     try {
-      const response = await fetch(url);
-      results = await response.json();
+      results = await searchAddress(query);
     } catch {
       setGuidance(guidanceFor({ status: 'unreachable' }));
       return;
     }
 
     if (results.length === 0) {
-      setNotice(`Couldn't find "${query}" in Houston. Try adding a street or neighbourhood.`);
+      const close = await suggestPlaces(query, { limit: 3 }).catch(() => []);
+      setNotice(
+        close.length
+          ? `Couldn't find "${query}" in the Houston area. Did you mean:`
+          : `Couldn't find "${query}" in the Houston area. Try adding a street, city or ZIP code.`
+      );
+      setDidYouMean(close);
       return;
     }
 
-    const lat = parseFloat(results[0].lat);
-    const lon = parseFloat(results[0].lon);
-    setDestinationPin([lat, lon]);
-
-    if (userLocation) {
-      await getRoute(userLocation, [lat, lon]);
-    }
+    await routeToPlace(results[0]);
   }
 
   async function getRoute(start, end) {
@@ -142,40 +147,40 @@ function App() {
         flexDirection: 'column',
       }}
     >
-      <form
-        onSubmit={handleSearch}
-        style={{
-          padding: '10px',
-          background: '#222',
-          display: 'flex',
-          gap: '8px',
-        }}
-      >
-        <input
-          ref={searchInputRef}
-          autoFocus
-          aria-label="Destination"
-          type="text"
-          placeholder="Type a destination in Houston..."
-          value={destinationText}
-          onChange={(e) => setDestinationText(e.target.value)}
-          style={{ flex: 1, padding: '8px', fontSize: '16px' }}
-        />
-        <button
-          type="submit"
-          disabled={searching}
-          style={{ padding: '8px 16px', fontSize: '16px', minWidth: '130px' }}
-        >
-          {searching ? 'Finding route…' : 'Search'}
-        </button>
-      </form>
+      <DestinationSearch
+        inputRef={searchInputRef}
+        searching={searching}
+        onSearchText={(query) => withSearching(() => searchAndRoute(query))}
+        onPickPlace={(place) => withSearching(() => routeToPlace(place))}
+      />
 
       {notice && (
         <div
           role="status"
-          style={{ padding: '8px 12px', background: '#3a2e05', color: '#fde68a', fontSize: '15px' }}
+          style={{
+            padding: '8px 12px',
+            background: '#3a2e05',
+            color: '#fde68a',
+            fontSize: '15px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '8px',
+            textAlign: 'left',
+          }}
         >
-          {notice}
+          <span>{notice}</span>
+          {didYouMean.map((place) => (
+            <button
+              key={`${place.label}|${place.detail}`}
+              type="button"
+              onClick={() => withSearching(() => routeToPlace(place))}
+              style={{ padding: '3px 10px', fontSize: '14px', borderRadius: '999px', border: '1px solid #fde68a', background: 'transparent', color: '#fde68a', cursor: 'pointer' }}
+            >
+              {place.label}
+              {place.detail && <span style={{ opacity: 0.75 }}> · {place.detail}</span>}
+            </button>
+          ))}
         </div>
       )}
 

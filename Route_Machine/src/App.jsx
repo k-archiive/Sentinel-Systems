@@ -6,6 +6,7 @@ import RiskRoute, { RISK_COLORS } from './components/RiskRoute.jsx';
 import { scoreRoute } from './risk/scoreRoute.js';
 import { SAMPLE_FLOOD_POINTS } from './data/sampleFloodPoints.js';
 
+
 const RISK_LABELS = { clear: 'Clear', low: 'Low', moderate: 'Moderate', high: 'High' };
 
 function App() {
@@ -16,27 +17,34 @@ function App() {
   const [destinationPin, setDestinationPin] = useState(null);
   const [routePoints, setRoutePoints] = useState(null);
   const [risk, setRisk] = useState(null);
+  const [directions, setDirections] = useState([]);
+  const [currentStep, setCurrentStep] = useState(0);
   const floodPoints = SAMPLE_FLOOD_POINTS;
 
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation([
-            position.coords.latitude,
-            position.coords.longitude,
-          ]);
-        },
-        (error) => {
-          alert(
-            'Could not get your location, using default Houston center instead.'
-          );
-          setUserLocation(houstonCenter);
-        }
-      );
-    } else {
+    if (!navigator.geolocation) {
       setUserLocation(houstonCenter);
+      return;
     }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setUserLocation([
+          position.coords.latitude,
+          position.coords.longitude,
+        ]);
+      },
+      () => {
+        setUserLocation(houstonCenter);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 5000,
+      }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
   async function handleSearch() {
@@ -61,7 +69,7 @@ function App() {
   }
 
   async function getRoute(start, end) {
-    const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+    const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson&steps=true`;
 
     const response = await fetch(url);
     const data = await response.json();
@@ -71,6 +79,14 @@ function App() {
         point[1],
         point[0],
       ]);
+
+      const steps = data.routes[0].legs[0].steps;
+      setDirections(steps);
+
+      console.log("ROUTE STEPS:", steps);
+
+      setCurrentStep(0);
+
       setRoutePoints(coords);
       setRisk(scoreRoute(coords, floodPoints));
     } else {
@@ -157,6 +173,41 @@ function App() {
         </div>
       )}
 
+      {directions.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            padding: "12px",
+            background: "transparent",
+          }}
+        >
+          <div
+            style={{
+              background: "#0078d4",
+              color: "white",
+              padding: "15px 30px",
+              borderRadius: "9999px",
+              fontWeight: "bold",
+              fontSize: "18px",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+              textAlign: "center",
+              maxWidth: "90%",
+            }}
+          >
+            <div style={{ fontSize: "14px", opacity: 0.9 }}>
+              Step {currentStep + 1} of {directions.length}
+            </div>
+
+            <div style={{ marginTop: "4px" }}>
+              {directions[currentStep]?.maneuver.type}
+              {directions[currentStep]?.name &&
+                ` onto ${directions[currentStep].name}`}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ flex: 1 }}>
         <MapContainer
           center={userLocation}
@@ -167,23 +218,42 @@ function App() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution="&copy; OpenStreetMap contributors"
           />
-          <Marker position={userLocation} />
-          {destinationPin && <Marker position={destinationPin} />}
+
+          <Marker position={userLocation}>
+            <Tooltip permanent>
+              You
+            </Tooltip>
+          </Marker>
+
+          {destinationPin && (
+            <Marker position={destinationPin} />
+          )}
+
           {floodPoints.map((point) => (
             <CircleMarker
               key={`${point.lat},${point.lng}`}
               center={[point.lat, point.lng]}
               radius={6}
-              pathOptions={{ color: '#0e7490', fillColor: '#22d3ee', fillOpacity: 0.8 }}
+              pathOptions={{
+                color: '#0e7490',
+                fillColor: '#22d3ee',
+                fillOpacity: 0.8,
+              }}
             >
-              <Tooltip>Flood point · {point.depthFt} ft deep</Tooltip>
+              <Tooltip>
+                Flood point · {point.depthFt} ft deep
+              </Tooltip>
             </CircleMarker>
           ))}
-          {risk && routePoints && <RiskRoute segments={risk.segments} />}
+
+          {risk && routePoints && (
+            <RiskRoute segments={risk.segments} />
+          )}
+
         </MapContainer>
       </div>
     </div>
   );
-}
+}/*  */
 
-export default App;
+      export default App;

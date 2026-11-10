@@ -8,6 +8,39 @@ import { SAMPLE_FLOOD_POINTS } from './data/sampleFloodPoints.js';
 
 
 const RISK_LABELS = { clear: 'Clear', low: 'Low', moderate: 'Moderate', high: 'High' };
+//gives distance btwn user postition and next direction
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+
+function formatDistance(distance) {
+  if (distance < 100) {
+    const feet = Math.round(distance * 3.28084);
+    return `${feet} ft away`;
+  }
+
+  if (distance < 1000) {
+    return `${distance} m away`;
+  }
+
+  const miles = distance * 0.000621371;
+
+  return `${miles.toFixed(1)} mi away`;
+}
 
 function App() {
   const houstonCenter = [29.7604, -95.3698];
@@ -19,6 +52,7 @@ function App() {
   const [risk, setRisk] = useState(null);
   const [directions, setDirections] = useState([]);
   const [currentStep, setCurrentStep] = useState(0);
+  const [distanceToNext, setDistanceToNext] = useState(null);
   const floodPoints = SAMPLE_FLOOD_POINTS;
 
   useEffect(() => {
@@ -46,6 +80,41 @@ function App() {
 
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
+
+  useEffect(() => {
+    if (
+      !userLocation ||
+      directions.length === 0 ||
+      currentStep >= directions.length
+    ) {
+      return;
+    }
+
+    const step = directions[currentStep];
+
+    const maneuverLat = step.maneuver.location[1];
+    const maneuverLon = step.maneuver.location[0];
+
+    const distance = getDistance(
+      userLocation[0],
+      userLocation[1],
+      maneuverLat,
+      maneuverLon
+    );
+
+    setDistanceToNext(Math.round(distance));
+
+    console.log(
+      "Distance to next maneuver:",
+      Math.round(distance),
+      "meters"
+    );
+
+    if (distance < 15 && currentStep < directions.length - 1) {
+      console.log("MANEUVER REACHED");
+      setCurrentStep((prev) => prev + 1);
+    }
+  }, [userLocation, directions, currentStep]);
 
   async function handleSearch() {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
@@ -134,6 +203,20 @@ function App() {
         </button>
       </div>
 
+      <button
+        onClick={() => {
+          if (currentStep < directions.length - 1) {
+            setCurrentStep(prev => prev + 1);
+          }
+        }}
+        style={{
+          padding: '8px 16px',
+          fontSize: '16px'
+        }}
+      >
+        Test Next Step
+      </button>
+
       {risk && (
         <div
           style={{
@@ -200,9 +283,60 @@ function App() {
             </div>
 
             <div style={{ marginTop: "4px" }}>
-              {directions[currentStep]?.maneuver.type}
-              {directions[currentStep]?.name &&
-                ` onto ${directions[currentStep].name}`}
+              {directions[currentStep]?.maneuver.type === "depart" &&
+                `Start${directions[currentStep]?.name
+                  ? ` on ${directions[currentStep].name}`
+                  : ""
+                }`}
+
+              {directions[currentStep]?.maneuver.type === "turn" &&
+                `Turn ${directions[currentStep]?.maneuver.modifier}${directions[currentStep]?.name
+                  ? ` onto ${directions[currentStep].name}`
+                  : ""
+                }`}
+
+              {directions[currentStep]?.maneuver.type === "merge" &&
+                `Merge${directions[currentStep]?.name
+                  ? ` onto ${directions[currentStep].name}`
+                  : ""
+                }`}
+
+              {directions[currentStep]?.maneuver.type === "fork" &&
+                `Keep ${directions[currentStep]?.maneuver.modifier || "straight"}${directions[currentStep]?.name
+                  ? ` toward ${directions[currentStep].name}`
+                  : ""
+                }`}
+
+              {directions[currentStep]?.maneuver.type === "on ramp" &&
+                `Take the ramp${directions[currentStep]?.name
+                  ? ` to ${directions[currentStep].name}`
+                  : ""
+                }`}
+
+              {directions[currentStep]?.maneuver.type === "off ramp" &&
+                `Take the exit${directions[currentStep]?.name
+                  ? ` toward ${directions[currentStep].name}`
+                  : ""
+                }`}
+
+              {directions[currentStep]?.maneuver.type === "arrive" &&
+                "You have arrived at your destination"}
+              {distanceToNext !== null && (
+                <div
+                  style={{
+                    marginTop: "8px",
+                    fontSize: "14px",
+                    opacity: 0.9,
+                  }}
+                >
+                  {formatDistance(distanceToNext)} 
+                </div>
+              )}
+              {/* //Type: {directions[currentStep]?.maneuver.type} */}
+            </div>
+            <div
+              style={{ marginTop: "6px", fontSize: "11px", opacity: 0.9 }}>
+              GPS Tracking Active
             </div>
           </div>
         </div>
@@ -256,4 +390,4 @@ function App() {
   );
 }/*  */
 
-      export default App;
+export default App;

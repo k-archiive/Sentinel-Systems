@@ -23,6 +23,8 @@ export default function DestinationSearch({ inputRef, searching, onSearchText, o
     const timer = setTimeout(() => {
       suggestPlaces(query, { signal: controller.signal })
         .then((places) => {
+          // The user searched or picked something while this was loading.
+          if (!typedRef.current) return;
           setSuggestions(places);
           setActive(-1);
           setOpen(true);
@@ -52,7 +54,9 @@ export default function DestinationSearch({ inputRef, searching, onSearchText, o
     }
     const query = text.trim();
     if (!query || searching) return;
+    typedRef.current = false;
     setOpen(false);
+    setSuggestions([]);
     onSearchText(query);
   }
 

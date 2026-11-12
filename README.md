@@ -6,10 +6,10 @@ Houston frequently experiences heavy rainfall and flash flooding, causing road c
 
 The Houston Flood-Aware Route Planner aims to address this challenge by integrating real-time flood monitoring, weather forecasts, traffic updates, and road closure data to recommend safer travel routes. The system will analyze flood-prone areas and current conditions, calculate alternative paths with lower risk, and provide timely alerts to users. By prioritizing both safety and efficiency, the solution seeks to reduce flood-related travel hazards and improve mobility during extreme weather events.
 
-# Target users
+## Target users
 Target users would be Houston residents and commuters
 
-# Main Features
+## Main Features
 
 1.Real-Time Flood Risk Detection
 2.Flood-Aware Route Optimization
@@ -17,19 +17,19 @@ Target users would be Houston residents and commuters
 4.Road Closure and Traffic Updates
 5.Weather Forecast and Emergency Alerts
 
-#  Requirements
+##  Requirements
 
 1.Route Generation
 2.Flood Risk Identification
 3.Flood-Aware Route Recommendation
 4.Real-Time Route Updates
 
-# Non-Functional Requirements
+## Non-Functional Requirements
 1.Performance: <5 second generation
 2.Availability: 99% uptime
 3.Usability: user enter routes, view risks, report hazards, <3 user interactions
 
-# Major Development Tasks
+## Major Development Tasks
 1. User Interface (UI) Development
 2. Route Optimization Module
 3. Flood and Weather Data Integration

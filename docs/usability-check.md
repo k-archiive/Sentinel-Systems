@@ -44,8 +44,9 @@ Time from pressing Enter to the route and risk score appearing: about **1 second
 
 ## Still to improve (not fixed here)
 
-- **No way to choose a different start.** Routes always start from the user's location
-  (or downtown if location is blocked).
+- ~~**No way to choose a different start.**~~ Fixed: **From** and **To** fields (From defaults to
+  "Your location"), a swap button, and long-press / right-click on the map to drop a pin with
+  "Start here" or "Go here". The 2-step route (type a destination, press Enter) still works.
 - ~~**Search only covers Houston city.**~~ Fixed for #46: search now covers the Greater Houston
   area (Katy, Sugar Land, Pearland, Kemah, The Woodlands, Baytown).
 - ~~**No suggestions while typing.**~~ Fixed for #45: a dropdown suggests places after 3

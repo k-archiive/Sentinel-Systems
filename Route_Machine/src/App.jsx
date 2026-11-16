@@ -9,6 +9,7 @@ import { SAMPLE_FLOOD_POINTS } from './data/sampleFloodPoints.js';
 import SafetyGuidance from './components/SafetyGuidance.jsx';
 import { guidanceFor } from './risk/safetyGuidance.js';
 import DestinationSearch from './components/DestinationSearch.jsx';
+import SearchProgress from './components/SearchProgress.jsx';
 import { searchAddress, suggestPlaces } from './geo/places.js';
 import GooglePreview from './components/GooglePreview.jsx';
 import { getEmbedKey } from './google/embed.js';
@@ -35,6 +36,9 @@ function App() {
   const [searching, setSearching] = useState(false);
   const [notice, setNotice] = useState('');
   const [didYouMean, setDidYouMean] = useState([]);
+  // {phase, query} while searching, {doneMs} once a route is ready.
+  const [progress, setProgress] = useState(null);
+  const searchStartRef = useRef(0);
   const [googleView, setGoogleView] = useState(null);
   const searchInputRef = useRef(null);
   const floodPoints = SAMPLE_FLOOD_POINTS;
@@ -63,20 +67,26 @@ function App() {
     }
   }, []);
 
-  // Runs one search or route request at a time and clears old messages.
-  async function withSearching(task) {
+  // Runs one search or route request at a time, clears old messages and
+  // times it. firstStep is where the progress line starts.
+  async function withSearching(task, firstStep) {
     if (searching) return;
     setSearching(true);
     setNotice('');
     setDidYouMean([]);
+    setProgress(firstStep);
+    searchStartRef.current = performance.now();
     try {
       await task();
     } finally {
       setSearching(false);
+      // Keep the "ready in …" message; clear the line if the search stopped early.
+      setProgress((p) => (p && p.doneMs != null ? p : null));
     }
   }
 
   async function routeToPlace(place) {
+    setProgress({ phase: 'route' });
     setDestinationPin([place.lat, place.lng]);
     if (userLocation) {
       await getRoute(userLocation, [place.lat, place.lng]);
@@ -126,6 +136,7 @@ function App() {
       setRoutePoints(coords);
       const routeRisk = scoreRoute(coords, floodPoints);
       setRisk(routeRisk);
+      setProgress({ doneMs: performance.now() - searchStartRef.current });
       setGoogleView({ mode: 'route' });
       setGuidance(guidanceFor({ status: 'ok', risk: routeRisk }));
     } else {
@@ -156,9 +167,10 @@ function App() {
       <DestinationSearch
         inputRef={searchInputRef}
         searching={searching}
-        onSearchText={(query) => withSearching(() => searchAndRoute(query))}
-        onPickPlace={(place) => withSearching(() => routeToPlace(place))}
+        onSearchText={(query) => withSearching(() => searchAndRoute(query), { phase: 'address', query })}
+        onPickPlace={(place) => withSearching(() => routeToPlace(place), { phase: 'route' })}
       />
+      <SearchProgress progress={progress} />
 
       {notice && (
         <div
@@ -180,7 +192,7 @@ function App() {
             <button
               key={`${place.label}|${place.detail}`}
               type="button"
-              onClick={() => withSearching(() => routeToPlace(place))}
+              onClick={() => withSearching(() => routeToPlace(place), { phase: 'route' })}
               style={{ padding: '3px 10px', fontSize: '14px', borderRadius: '999px', border: '1px solid #fde68a', background: 'transparent', color: '#fde68a', cursor: 'pointer' }}
             >
               {place.label}

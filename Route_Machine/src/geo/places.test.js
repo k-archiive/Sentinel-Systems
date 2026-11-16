@@ -3,6 +3,7 @@ import {
   formatNominatimPlace,
   formatPhotonPlace,
   HOUSTON_AREA,
+  reverseGeocode,
   searchAddress,
   suggestPlaces,
   uniquePlaces,
@@ -80,5 +81,28 @@ describe('suggestPlaces', () => {
     vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ features: ['A', 'A', 'B', 'C', 'D'].map(feature) })));
     const places = await suggestPlaces('stadium', { limit: 3 });
     expect(places.map((p) => p.label)).toEqual(['A', 'B', 'C']);
+  });
+});
+
+describe('reverseGeocode', () => {
+  it('returns the nearest address for a point', async () => {
+    const fetchMock = vi.fn(() =>
+      jsonResponse({
+        name: 'Houston City Hall',
+        display_name: 'Houston City Hall, 901, Bagby Street, Downtown, Houston',
+        address: { house_number: '901', road: 'Bagby Street', city: 'Houston' },
+        lat: '29.7601',
+        lon: '-95.3693',
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const place = await reverseGeocode(29.7601, -95.3693);
+    expect(place).toMatchObject({ label: 'Houston City Hall', detail: '901 Bagby Street, Houston' });
+    expect(new URL(fetchMock.mock.calls[0][0]).pathname).toBe('/reverse');
+  });
+
+  it('returns null when there is no address there', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ error: 'Unable to geocode' })));
+    expect(await reverseGeocode(0, 0)).toBeNull();
   });
 });

@@ -84,3 +84,12 @@ export async function suggestPlaces(query, { signal, limit = 5 } = {}) {
   const data = await response.json();
   return uniquePlaces(data.features.map(formatPhotonPlace)).slice(0, limit);
 }
+
+/** The nearest address to a point, or null if there isn't one. Used for dropped pins. */
+export async function reverseGeocode(lat, lng, { signal } = {}) {
+  const params = new URLSearchParams({ format: 'json', lat: String(lat), lon: String(lng), zoom: '18', addressdetails: '1' });
+  const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`, { signal });
+  const result = await response.json();
+  if (!result || result.error || !result.display_name) return null;
+  return formatNominatimPlace(result);
+}

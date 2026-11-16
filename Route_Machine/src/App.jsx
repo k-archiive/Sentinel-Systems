@@ -10,6 +10,8 @@ import SafetyGuidance from './components/SafetyGuidance.jsx';
 import { guidanceFor } from './risk/safetyGuidance.js';
 import DestinationSearch from './components/DestinationSearch.jsx';
 import SearchProgress from './components/SearchProgress.jsx';
+import FloodAlertBanner from './components/FloodAlertBanner.jsx';
+import { sampleAlerts, sampleAlertsRequested } from './alerts/sampleAlerts.js';
 import { searchAddress, suggestPlaces } from './geo/places.js';
 
 
@@ -38,6 +40,8 @@ function App() {
   const searchStartRef = useRef(0);
   const searchInputRef = useRef(null);
   const floodPoints = SAMPLE_FLOOD_POINTS;
+  // Live NWS alerts plug in here (#32). Until then, sample alerts show only with ?sampleAlerts=1.
+  const [weatherAlerts] = useState(() => (sampleAlertsRequested() ? sampleAlerts() : []));
 
   const closeGuidance = useCallback(() => {
     setGuidance(null);
@@ -165,6 +169,7 @@ function App() {
         onPickPlace={(place) => withSearching(() => routeToPlace(place), { phase: 'route' })}
       />
       <SearchProgress progress={progress} />
+      <FloodAlertBanner alerts={weatherAlerts} />
 
       {notice && (
         <div

@@ -1,6 +1,5 @@
-import { RISK_COLORS } from './RiskRoute.jsx';
-
-const LABELS = { clear: 'Clear', low: 'Low risk', moderate: 'Moderate risk', high: 'High risk' };
+import { RISK_STYLES } from '../risk/riskStyles.js';
+import RiskIcon from './RiskIcon.jsx';
 
 // What each level means for the driver, in plain words.
 export const RISK_ADVICE = {
@@ -22,7 +21,8 @@ function Fact({ value, label }) {
 // The route's flood risk: level, score bar, advice and key numbers.
 // Self-contained so it can move into a side panel without changes.
 export default function RiskSummary({ risk, sampleData = true }) {
-  const color = RISK_COLORS[risk.level];
+  const style = RISK_STYLES[risk.level];
+  const { color } = style;
   return (
     <section
       aria-label="Route flood risk"
@@ -38,8 +38,20 @@ export default function RiskSummary({ risk, sampleData = true }) {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-        <span style={{ background: color, color: '#fff', fontWeight: 700, padding: '2px 10px', borderRadius: '999px' }}>
-          {LABELS[risk.level]}
+        <span
+          style={{
+            background: color,
+            color: style.textColor,
+            fontWeight: 700,
+            padding: '3px 12px 3px 8px',
+            borderRadius: '999px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <RiskIcon level={risk.level} color={style.textColor} />
+          {style.label}
         </span>
         <span style={{ fontSize: '15px', fontVariantNumeric: 'tabular-nums' }}>{risk.score}/100</span>
         <div
@@ -48,9 +60,18 @@ export default function RiskSummary({ risk, sampleData = true }) {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={risk.score}
-          style={{ flex: '1 1 120px', height: '8px', background: '#333', borderRadius: '4px', overflow: 'hidden' }}
+          style={{ flex: '1 1 120px', height: '10px', background: '#4b5563', borderRadius: '5px', overflow: 'hidden' }}
         >
-          <div style={{ width: `${risk.score}%`, height: '100%', background: color }} />
+          {/* Light edge keeps the darker levels visible on the dark track. */}
+          <div
+            style={{
+              width: `${risk.score}%`,
+              height: '100%',
+              background: color,
+              boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.7)',
+              borderRadius: '5px',
+            }}
+          />
         </div>
       </div>
 

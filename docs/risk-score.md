@@ -38,12 +38,18 @@ score = 100 × (1 − (1 − c₁)(1 − c₂)…(1 − cₙ))
 So one deep point right on the road gives a score near 100, each extra point raises the score
 by less than the one before, and the score can never go above 100.
 
-| Score | Level | Colour |
-|---|---|---|
-| 0 | Clear | Blue |
-| 1–29 | Low | Yellow |
-| 30–59 | Moderate | Orange |
-| 60–100 | High | Red |
+| Score | Level | Colour | Line on the map | Badge icon |
+|---|---|---|---|---|
+| 0 | Clear | Blue | Thin solid | ● Circle |
+| 1–29 | Low | Light yellow | Dashed | ▲ Triangle |
+| 30–59 | Moderate | Orange | Dotted | ◆ Diamond |
+| 60–100 | High | Dark red | Thick solid | ⯃ Octagon (stop sign) |
+
+**Readable without colour.** Each level also differs by line pattern, line width and badge icon,
+and the colours get steadily darker from low to high, so the levels still read with colour
+blindness or in greyscale. Every line has a white outline so it stands out from the red and pink
+highways on the map. Badge text meets WCAG AA contrast (4.5:1). All of this is defined once in
+`Route_Machine/src/risk/riskStyles.js` (with tests), so the map legend can reuse it.
 
 ## Step 4: colouring the route
 
